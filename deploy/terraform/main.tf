@@ -125,10 +125,17 @@ resource "ovh_cloud_project_database" "mysqldb" {
     "mysql.sql_mode" : "ANSI,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_ALL_TABLES",
     "mysql.sql_require_primary_key" : "true"
   }
+  depends_on = [ovh_cloud_project_network_private_subnet.subnet]
+}
 
+resource "ovh_cloud_project_database_user" "user" {
+  service_name = "569db610a93e443091a06c6d8827906b"
+  engine       = "mysql"
+  cluster_id   = ovh_cloud_project_database.mysqldb.id
+  name         = "lucas"
+}
 
-  ip_restrictions {
-    description = "my personal ip"
-    ip = "185.64.149.28/32"
-  }
+output "user_password" {
+  value     = ovh_cloud_project_database_user.user.password
+  sensitive = true
 }
