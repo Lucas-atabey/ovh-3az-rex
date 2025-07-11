@@ -24,7 +24,7 @@ metadata:
   labels:
     app: backend
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: backend
@@ -36,6 +36,7 @@ spec:
       containers:
         - name: backend
           image: lucas1712/cloudclever-kube-rex-backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 5000
           env:
@@ -49,6 +50,8 @@ spec:
               value: "${DB_PORT}"
             - name: DB_NAME
               value: "${DB_NAME}"
+            - name: DB_TYPE
+              value: "${DB_TYPE}"
 ---
 apiVersion: v1
 kind: Service
@@ -62,7 +65,7 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80
+      targetPort: 3000
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -83,7 +86,7 @@ metadata:
   labels:
     app: frontend
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: frontend
@@ -95,11 +98,12 @@ spec:
       containers:
         - name: frontend
           image: lucas1712/cloudclever-kube-rex-frontend:latest
+          imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 3000
           volumeMounts:
             - name: config-volume
-              mountPath: /usr/share/nginx/html/config.json
+              mountPath: /tmp/config/config.json
               subPath: config.json
       volumes:
         - name: config-volume

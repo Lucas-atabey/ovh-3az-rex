@@ -52,6 +52,50 @@ resource "ovh_cloud_project_gateway" "gateway" {
   subnet_id    = ovh_cloud_project_network_private_subnet.subnet.id
 }
 
+
+##############################################################################
+#                        MANAGED MYSQL DATABASE                              #
+##############################################################################
+resource "ovh_cloud_project_database" "mysqldb" {
+  service_name = "569db610a93e443091a06c6d8827906b"
+  description  = "my-first-mysql"
+  engine       = "mysql"
+  version      = "8"
+  plan         = "production"
+  nodes {
+    region     = "EU-WEST-PAR"
+    subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
+    network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
+  }
+  nodes {
+    region     = "EU-WEST-PAR"
+    subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
+    network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
+  }
+  flavor = "b3-8"
+  advanced_configuration = {
+    "mysql.sql_mode" : "ANSI,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_ALL_TABLES",
+    "mysql.sql_require_primary_key" : "true"
+  }
+  ip_restrictions {
+    description = "private network ip"
+    ip          = "10.1.0.0/26"
+  }
+  depends_on = [ovh_cloud_project_network_private_subnet.subnet]
+}
+
+resource "ovh_cloud_project_database_user" "user" {
+  service_name = "569db610a93e443091a06c6d8827906b"
+  engine       = "mysql"
+  cluster_id   = ovh_cloud_project_database.mysqldb.id
+  name         = "lucas"
+}
+
+output "user_password" {
+  value     = ovh_cloud_project_database_user.user.password
+  sensitive = true
+}
+
 ##############################################################################
 #                        MANAGED KUBERNETES SERVICE                          #
 ##############################################################################
@@ -63,7 +107,7 @@ resource "ovh_cloud_project_kube" "my_multizone_cluster" {
   private_network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
   nodes_subnet_id    = ovh_cloud_project_network_private_subnet.subnet.id
 
-  depends_on = [ovh_cloud_project_gateway.gateway] //Gateway is mandatory for multizones cluster
+  depends_on = [ovh_cloud_project_database_user.user]
 }
 
 resource "time_sleep" "wait_for_cluster" {
@@ -99,43 +143,4 @@ resource "ovh_cloud_project_kube_nodepool" "node_pool_multi_zones_c" {
   desired_nodes      = 1
   availability_zones = ["eu-west-par-c"]
   depends_on         = [time_sleep.wait_for_cluster]
-}
-
-##############################################################################
-#                        MANAGED MYSQL DATABASE                              #
-##############################################################################
-resource "ovh_cloud_project_database" "mysqldb" {
-  service_name = "569db610a93e443091a06c6d8827906b"
-  description  = "my-first-mysql"
-  engine       = "mysql"
-  version      = "8"
-  plan         = "production"
-  nodes {
-    region     = "EU-WEST-PAR"
-    subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
-    network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
-  }
-  nodes {
-    region     = "EU-WEST-PAR"
-    subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
-    network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
-  }
-  flavor = "b3-8"
-  advanced_configuration = {
-    "mysql.sql_mode" : "ANSI,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_ALL_TABLES",
-    "mysql.sql_require_primary_key" : "true"
-  }
-  depends_on = [ovh_cloud_project_network_private_subnet.subnet]
-}
-
-resource "ovh_cloud_project_database_user" "user" {
-  service_name = "569db610a93e443091a06c6d8827906b"
-  engine       = "mysql"
-  cluster_id   = ovh_cloud_project_database.mysqldb.id
-  name         = "lucas"
-}
-
-output "user_password" {
-  value     = ovh_cloud_project_database_user.user.password
-  sensitive = true
 }

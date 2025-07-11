@@ -61,3 +61,45 @@ jobs:
 
       - run: terraform apply -auto-approve
         working-directory: deploy/terraform
+
+  kube-deploy:
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: deploy/terraform
+
+      - name: Extract kubeconfig output
+        run: |
+          mkdir -p ~/.kube
+          terraform output -raw kubeconfig_file_eu_west_par > ~/.kube/config
+        working-directory: deploy/terraform
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Setup env variables
+        run: |
+          echo "DB_USERNAME=lucas" >> $GITHUB_ENV
+          echo "DB_PASSWORD=$(terraform output -raw user_password)" >> $GITHUB_ENV
+          echo "DB_HOST=$(terraform output -raw domain)" >> $GITHUB_ENV
+          echo "DB_PORT=$(terraform output -raw port)" >> $GITHUB_ENV
+          echo "DB_NAME=defaultdb" >> $GITHUB_ENV
+          echo "DB_TYPE=mysql+pymysql" >> $GITHUB_ENV
+        working-directory: deploy/terraform
+
+      - name: Deploy to Kubernetes
+        shell: bash
+        run: |
+          envsubst < hello.yaml | kubectl apply -f -
+          kubectl rollout restart -n hello-app deployment backend-deployment frontend-deployment
+        working-directory: deploy/kubernetes
