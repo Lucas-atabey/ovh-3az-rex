@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    image: lucas1712/cloudclever-kube-rex-backend:latest
+    container_name: backend
+    ports:
+      - "5000:5000"
+    environment:
+      DB_USERNAME: your_db_username
+      DB_PASSWORD: your_db_password
+      DB_HOST: your_db_host
+      DB_PORT: your_db_port
+      DB_NAME: your_db_name
+      DB_TYPE: your_db_type
+
+  frontend:
+    image: lucas1712/cloudclever-kube-rex-frontend:latest
+    container_name: frontend
+    ports:
+      - "80:3000"
+    volumes:
+      - ./config.json:/tmp/config/config.json:ro
+    depends_on:
+      - backend

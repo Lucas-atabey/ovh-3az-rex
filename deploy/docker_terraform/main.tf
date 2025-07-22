@@ -26,7 +26,7 @@ provider "ovh" {
 ##############################################################################
 resource "ovh_cloud_project_network_private" "network" {
   service_name = "569db610a93e443091a06c6d8827906b" # Public Cloud service name
-  name         = "terraform_mks_multiaz_private_net"
+  name         = "terraform_instances_multiaz_private_net"
   regions      = ["EU-WEST-PAR"]
 }
 
@@ -37,10 +37,11 @@ resource "ovh_cloud_project_network_private_subnet" "subnet" {
   # whatever region, for test purpose
   region     = "EU-WEST-PAR"
   start      = "10.1.0.2"
-  end        = "10.1.0.14"
-  network    = "10.1.0.0/28"
+  end        = "10.1.0.30"
+  network    = "10.1.0.0/27"
   dhcp       = true
   no_gateway = false
+  depends_on = [ovh_cloud_project_network_private.network]
 }
 
 resource "ovh_cloud_project_gateway" "gateway" {
@@ -50,6 +51,7 @@ resource "ovh_cloud_project_gateway" "gateway" {
   region       = "EU-WEST-PAR"
   network_id   = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
   subnet_id    = ovh_cloud_project_network_private_subnet.subnet.id
+  depends_on   = [ovh_cloud_project_network_private_subnet.subnet]
 }
 
 ##############################################################################
@@ -94,6 +96,7 @@ resource "ovh_cloud_project_instance" "instance_a" {
   user_data = templatefile("${path.module}/cloud-init.yaml", {
     ssh_public_key = var.ssh_public_key
   })
+  depends_on = [ovh_cloud_project_gateway.gateway, ovh_cloud_project_ssh_key.key]
 }
 
 resource "ovh_cloud_project_instance" "instance_b" {
@@ -129,6 +132,7 @@ resource "ovh_cloud_project_instance" "instance_b" {
   user_data = templatefile("${path.module}/cloud-init.yaml", {
     ssh_public_key = var.ssh_public_key
   })
+  depends_on = [ovh_cloud_project_gateway.gateway, ovh_cloud_project_ssh_key.key]
 }
 
 resource "ovh_cloud_project_instance" "instance_c" {
@@ -164,47 +168,54 @@ resource "ovh_cloud_project_instance" "instance_c" {
   user_data = templatefile("${path.module}/cloud-init.yaml", {
     ssh_public_key = var.ssh_public_key
   })
+  depends_on = [ovh_cloud_project_gateway.gateway, ovh_cloud_project_ssh_key.key]
 }
 
 ##############################################################################
 #                        MANAGED MYSQL DATABASE                              #
 ##############################################################################
-# resource "ovh_cloud_project_database" "mysqldb" {
-#   service_name = "569db610a93e443091a06c6d8827906b"
-#   description  = "my-first-mysql"
-#   engine       = "mysql"
-#   version      = "8"
-#   plan         = "production"
-#   nodes {
-#     region     = "EU-WEST-PAR"
-#     subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
-#     network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
-#   }
-#   nodes {
-#     region     = "EU-WEST-PAR"
-#     subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
-#     network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
-#   }
-#   flavor = "b3-8"
-#   advanced_configuration = {
-#     "mysql.sql_mode" : "ANSI,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_ALL_TABLES",
-#     "mysql.sql_require_primary_key" : "true"
-#   }
-#   ip_restrictions {
-#     description = "private network ip"
-#     ip          = "10.1.0.0/26"
-#   }
-#   depends_on = [ovh_cloud_project_network_private_subnet.subnet]
-# }
+resource "ovh_cloud_project_database" "mysqldb" {
+  service_name = "569db610a93e443091a06c6d8827906b"
+  description  = "my-first-mysql"
+  engine       = "mysql"
+  version      = "8"
+  plan         = "production"
+  nodes {
+    region     = "EU-WEST-PAR"
+    subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
+    network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
+  }
+  nodes {
+    region     = "EU-WEST-PAR"
+    subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
+    network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
+  }
+  flavor = "b3-8"
+  advanced_configuration = {
+    "mysql.sql_mode" : "ANSI,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_ALL_TABLES",
+    "mysql.sql_require_primary_key" : "true"
+  }
+  ip_restrictions {
+    description = "private network ip"
+    ip          = "10.1.0.0/27"
+  }
+  depends_on = [ovh_cloud_project_network_private_subnet.subnet]
+}
 
-# resource "ovh_cloud_project_database_user" "user" {
-#   service_name = "569db610a93e443091a06c6d8827906b"
-#   engine       = "mysql"
-#   cluster_id   = ovh_cloud_project_database.mysqldb.id
-#   name         = "lucas"
-# }
+resource "ovh_cloud_project_database_user" "user" {
+  service_name = "569db610a93e443091a06c6d8827906b"
+  engine       = "mysql"
+  cluster_id   = ovh_cloud_project_database.mysqldb.id
+  name         = "lucas"
+  depends_on   = [ovh_cloud_project_database.mysqldb]
+}
 
-# output "user_password" {
-#   value     = ovh_cloud_project_database_user.user.password
+output "user_password" {
+  value     = ovh_cloud_project_database_user.user.password
+  sensitive = true
+}
+
+# output "instance_b_floating_ip" {
+#   value     = ovh_cloud_project_instance.instance_b
 #   sensitive = true
 # }
