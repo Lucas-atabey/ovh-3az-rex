@@ -145,27 +145,27 @@ jobs:
   ##############################################################################
   #                          Docker DEPLOY                                     #
   ##############################################################################
-  docker-deploy:
-    runs-on: ubuntu-latest
-    needs: [set-context, terraform-apply]
-    if: ${{ needs.set-context.outputs.tf_dir == 'deploy/docker_terraform' }}
-    steps:
-      - uses: actions/checkout@v4
+  # docker-deploy:
+  #   runs-on: ubuntu-latest
+  #   needs: [set-context, terraform-apply]
+  #   if: ${{ needs.set-context.outputs.tf_dir == 'deploy/docker_terraform' }}
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
+  #     - uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: 1.6.6
 
-      - name: Terraform Init
-        run: terraform init
-        working-directory: ${{ needs.set-context.outputs.tf_dir }}
+  #     - name: Terraform Init
+  #       run: terraform init
+  #       working-directory: ${{ needs.set-context.outputs.tf_dir }}
 
-      - name: Setup env variables
-        run: |
-          echo "DB_USERNAME=lucas" >> .env
-          echo "DB_PASSWORD=$(terraform output -raw user_password)" >> .env
-          echo "DB_HOST=$(terraform output -raw domain)" >> .env
-          echo "DB_PORT=$(terraform output -raw port)" >> .env
-          echo "DB_NAME=defaultdb" >> .env
-          echo "DB_TYPE=mysql+pymysql" >> .env
-        working-directory: ${{ needs.set-context.outputs.tf_dir }}
+  #     - name: Setup env variables
+  #       run: |
+  #         echo "DB_USERNAME=lucas" >> .env
+  #         echo "DB_PASSWORD=$(terraform output -raw user_password)" >> .env
+  #         echo "DB_HOST=$(terraform output -raw domain)" >> .env
+  #         echo "DB_PORT=$(terraform output -raw port)" >> .env
+  #         echo "DB_NAME=defaultdb" >> .env
+  #         echo "DB_TYPE=mysql+pymysql" >> .env
+  #       working-directory: ${{ needs.set-context.outputs.tf_dir }}

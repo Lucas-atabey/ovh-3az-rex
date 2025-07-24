@@ -8,19 +8,92 @@ users:
       - ${ssh_public_key}
 
 runcmd:
-  - apt update && apt install -y iptables iptables-persistent
+  # Mise à jour & outils essentiels
+  - apt update && sudo install -y iptables iptables-persistent
+  # Config DNS (remplace si besoin)
+  - rm /etc/resolv.conf
+  - echo "nameserver 8.8.8.8" > /etc/resolv.conf
+  - systemctl restart systemd-resolved.service
+
+  # Config iptables simple
   - iptables -F
   - iptables -P INPUT DROP
   - iptables -P FORWARD DROP
   - iptables -P OUTPUT ACCEPT
   - iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-  # first ip is your personal ip if needed, the others are gitlab
-  # runners ip
-  - iptables -A INPUT -p tcp -s 185.64.149.28 --dport 22 -j ACCEPT # Miranui IP
-  - iptables -A INPUT -p tcp -s 5.49.58.184 --dport 22 -j ACCEPT   # Ip maison
+  # Autoriser SSH seulement depuis IP spécifiques
+  - iptables -A INPUT -p tcp -s 185.64.149.28 --dport 22 -j ACCEPT
+  - iptables -A INPUT -p tcp -s 5.49.58.184 --dport 22 -j ACCEPT
   - iptables -A INPUT -p tcp -s 35.231.145.151 --dport 22 -j ACCEPT
   - iptables -A INPUT -p tcp -s 35.243.134.228 --dport 22 -j ACCEPT
   - iptables-save > /etc/iptables/rules.v4
+  - apt update && apt install -y curl python3 python3-pip python3-venv build-essential default-libmysqlclient-dev pkg-config git
+  # Installer Node.js 20.x
+  - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  - apt install -y nodejs
+
+  # Cloner repo et nettoyer sauf backend/frontend
+  - git clone https://github.com/Lucas-atabey/cleaverCloudKubePoc.git /home/deployer/myApp
+  - mv /home/deployer/myApp/backend /home/deployer/backend
+  - mv /home/deployer/myApp/frontend /home/deployer/frontend
+  - rm -rf /home/deployer/myApp
+
+  # Backend Python venv et deps
+  - python3 -m venv /home/deployer/venv
+  - /home/deployer/venv/bin/pip install --upgrade pip
+  - /home/deployer/venv/bin/pip install -r /home/deployer/backend/requirements.txt
+
+  # Frontend : build React + deps serveur Node
+  - cd /home/deployer/frontend/frontend && npm install && npm run build
+  - cd /home/deployer/frontend/server && npm install
+
+  # Copier frontend build vers dossier public serveur Node (adapté si besoin)
+  - mkdir -p /home/deployer/frontend/server/public
+  - cp -r /home/deployer/frontend/frontend/dist/* /home/deployer/frontend/server/public/
+
+  # --- Créer le service systemd backend ---
+  - |
+    cat <<EOF > /etc/systemd/system/backend.service
+    [Unit]
+    Description=Backend Python App
+    After=network.target
+
+    [Service]
+    User=deployer
+    WorkingDirectory=/home/deployer/backend
+    ExecStart=/home/deployer/venv/bin/python -u app.py
+    Restart=always
+    Environment=PATH=/home/deployer/venv/bin:/usr/bin:/bin
+    Environment=PYTHONUNBUFFERED=1
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+
+  # --- Créer le service systemd frontend ---
+  - |
+    cat <<EOF > /etc/systemd/system/frontend.service
+    [Unit]
+    Description=Frontend Node.js Server
+    After=network.target
+
+    [Service]
+    User=deployer
+    WorkingDirectory=/home/deployer/frontend/server
+    ExecStart=/usr/bin/node server.js
+    Restart=always
+    Environment=NODE_ENV=production
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+
+  # Activer et lancer les services
+  - systemctl daemon-reload
+  - systemctl enable backend.service
+  - systemctl enable frontend.service
+  - systemctl start backend.service
+  - systemctl start frontend.service
 
 disable_root: true
 ssh_pwauth: false
