@@ -145,27 +145,52 @@ jobs:
   ##############################################################################
   #                          Docker DEPLOY                                     #
   ##############################################################################
-  # docker-deploy:
-  #   runs-on: ubuntu-latest
-  #   needs: [set-context, terraform-apply]
-  #   if: ${{ needs.set-context.outputs.tf_dir == 'deploy/docker_terraform' }}
-  #   steps:
-  #     - uses: actions/checkout@v4
+  docker-deploy:
+    runs-on: ubuntu-latest
+    needs: [set-context, terraform-apply]
+    if: ${{ needs.set-context.outputs.tf_dir == 'deploy/docker_terraform' }}
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - uses: hashicorp/setup-terraform@v3
-  #       with:
-  #         terraform_version: 1.6.6
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
 
-  #     - name: Terraform Init
-  #       run: terraform init
-  #       working-directory: ${{ needs.set-context.outputs.tf_dir }}
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ needs.set-context.outputs.tf_dir }}
 
-  #     - name: Setup env variables
-  #       run: |
-  #         echo "DB_USERNAME=lucas" >> .env
-  #         echo "DB_PASSWORD=$(terraform output -raw user_password)" >> .env
-  #         echo "DB_HOST=$(terraform output -raw domain)" >> .env
-  #         echo "DB_PORT=$(terraform output -raw port)" >> .env
-  #         echo "DB_NAME=defaultdb" >> .env
-  #         echo "DB_TYPE=mysql+pymysql" >> .env
-  #       working-directory: ${{ needs.set-context.outputs.tf_dir }}
+      - name: Setup env variables
+        run: |
+          echo "DB_USERNAME=lucas" >> .env
+          echo "DB_PASSWORD=$(terraform output -raw user_password)" >> .env
+          echo "DB_HOST=$(terraform output -raw domain)" >> .env
+          echo "DB_PORT=$(terraform output -raw port)" >> .env
+          echo "DB_NAME=defaultdb" >> .env
+          echo "DB_TYPE=mysql+pymysql" >> .env
+
+          echo "INSTANCE_A=$(terraform output -raw instance_a_floating_ip)" >> $GITHUB_ENV
+          echo "INSTANCE_B=$(terraform output -raw instance_b_floating_ip)" >> $GITHUB_ENV
+          echo "INSTANCE_C=$(terraform output -raw instance_c_floating_ip)" >> $GITHUB_ENV
+        working-directory: ${{ needs.set-context.outputs.tf_dir }}
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $INSTANCE_A >> ~/.ssh/known_hosts
+          ssh-keyscan -H $INSTANCE_B >> ~/.ssh/known_hosts
+          ssh-keyscan -H $INSTANCE_C >> ~/.ssh/known_hosts
+
+      - name: Deploy application
+        run: |
+          for IP in $INSTANCE_A $INSTANCE_B $INSTANCE_C; do
+            (
+              echo "Deploying on $IP"
+              scp ${{ needs.set-context.outputs.tf_dir }}/.env deployer@$IP:/home/deployer/.env
+              scp ${{ needs.set-context.outputs.tf_dir }}/scripts/deploy.sh deployer@$IP:/home/deployer/deploy.sh
+              ssh deployer@$IP "DOMAIN=$IP GITHUB_REPOSITORY='https://github.com/Lucas-atabey/cleaverCloudKubePoc.git' GITHUB_SHA='main' /home/deployer/deploy.sh"
+            ) &
+          done
+          wait

@@ -22,10 +22,14 @@ runcmd:
   - iptables -P OUTPUT ACCEPT
   - iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
   # Autoriser SSH seulement depuis IP spécifiques
-  - iptables -A INPUT -p tcp -s 185.64.149.28 --dport 22 -j ACCEPT
-  - iptables -A INPUT -p tcp -s 5.49.58.184 --dport 22 -j ACCEPT
-  - iptables -A INPUT -p tcp -s 35.231.145.151 --dport 22 -j ACCEPT
-  - iptables -A INPUT -p tcp -s 35.243.134.228 --dport 22 -j ACCEPT
+  # suppression du firewall sur les ip spécifiques car les runners github actions ont une trop grande range d'IP
+  # - iptables -A INPUT -p tcp -s 185.64.149.28 --dport 22 -j ACCEPT
+  # - iptables -A INPUT -p tcp -s 5.49.58.184 --dport 22 -j ACCEPT
+  # - iptables -A INPUT -p tcp -s 35.231.145.151 --dport 22 -j ACCEPT
+  # - iptables -A INPUT -p tcp -s 35.243.134.228 --dport 22 -j ACCEPT
+  - iptables -I INPUT -p tcp --dport 3000 -j ACCEPT
+  - iptables -A INPUT -p tcp --dport 22 -j ACCEPT  # 💥 SSH ouvert à tous
+  - mkdir -p /etc/iptables
   - iptables-save > /etc/iptables/rules.v4
   - apt update && apt install -y curl python3 python3-pip python3-venv build-essential default-libmysqlclient-dev pkg-config git
   # Installer Node.js 20.x
@@ -33,23 +37,21 @@ runcmd:
   - apt install -y nodejs
 
   # Cloner repo et nettoyer sauf backend/frontend
-  - git clone https://github.com/Lucas-atabey/cleaverCloudKubePoc.git /home/deployer/myApp
-  - mv /home/deployer/myApp/backend /home/deployer/backend
-  - mv /home/deployer/myApp/frontend /home/deployer/frontend
-  - rm -rf /home/deployer/myApp
+  - su - deployer -c 'git clone https://github.com/Lucas-atabey/cleaverCloudKubePoc.git /home/deployer/myApp/'
+  - find myApp -mindepth 1 -maxdepth 1 ! -wholename 'myApp/backend' ! -wholename 'myApp/frontend' -exec rm -rf {} +
 
   # Backend Python venv et deps
-  - python3 -m venv /home/deployer/venv
-  - /home/deployer/venv/bin/pip install --upgrade pip
-  - /home/deployer/venv/bin/pip install -r /home/deployer/backend/requirements.txt
+  - su - deployer -c 'python3 -m venv /home/deployer/venv'
+  - su - deployer -c '/home/deployer/venv/bin/pip install --upgrade pip'
+  - su - deployer -c '/home/deployer/venv/bin/pip install -r /home/deployer/myApp/backend/requirements.txt'
 
   # Frontend : build React + deps serveur Node
-  - cd /home/deployer/frontend/frontend && npm install && npm run build
-  - cd /home/deployer/frontend/server && npm install
+  - su - deployer -c 'cd /home/deployer/myApp/frontend/frontend && npm install && npm run build'
+  - su - deployer -c 'cd /home/deployer/myApp/frontend/server && npm install'
 
   # Copier frontend build vers dossier public serveur Node (adapté si besoin)
-  - mkdir -p /home/deployer/frontend/server/public
-  - cp -r /home/deployer/frontend/frontend/dist/* /home/deployer/frontend/server/public/
+  - su - deployer -c 'mkdir -p /home/deployer/myApp/frontend/server/public'
+  - su - deployer -c 'cp -r /home/deployer/myApp/frontend/frontend/dist/* /home/deployer/myApp/frontend/server/public/'
 
   # --- Créer le service systemd backend ---
   - |
@@ -60,7 +62,7 @@ runcmd:
 
     [Service]
     User=deployer
-    WorkingDirectory=/home/deployer/backend
+    WorkingDirectory=/home/deployer/myApp/backend
     ExecStart=/home/deployer/venv/bin/python -u app.py
     Restart=always
     Environment=PATH=/home/deployer/venv/bin:/usr/bin:/bin
@@ -79,7 +81,7 @@ runcmd:
 
     [Service]
     User=deployer
-    WorkingDirectory=/home/deployer/frontend/server
+    WorkingDirectory=/home/deployer/myApp/frontend/server
     ExecStart=/usr/bin/node server.js
     Restart=always
     Environment=NODE_ENV=production

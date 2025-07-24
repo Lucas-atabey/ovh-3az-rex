@@ -102,7 +102,7 @@ resource "ovh_cloud_project_instance" "instance_a" {
   ssh_key {
     name = "lucas"
   }
-  user_data = templatefile("${path.module}/cloud-init.yaml", {
+  user_data = templatefile("${path.module}/scripts/cloud-init.yaml", {
     ssh_public_key = var.ssh_public_key
   })
   depends_on = [time_sleep.wait_for_gateway, ovh_cloud_project_ssh_key.key]
@@ -137,7 +137,7 @@ resource "ovh_cloud_project_instance" "instance_b" {
   ssh_key {
     name = "lucas"
   }
-  user_data = templatefile("${path.module}/cloud-init.yaml", {
+  user_data = templatefile("${path.module}/scripts/cloud-init.yaml", {
     ssh_public_key = var.ssh_public_key
   })
   depends_on = [time_sleep.wait_for_gateway, ovh_cloud_project_ssh_key.key]
@@ -172,7 +172,7 @@ resource "ovh_cloud_project_instance" "instance_c" {
   ssh_key {
     name = "lucas"
   }
-  user_data = templatefile("${path.module}/cloud-init.yaml", {
+  user_data = templatefile("${path.module}/scripts/cloud-init.yaml", {
     ssh_public_key = var.ssh_public_key
   })
   depends_on = [time_sleep.wait_for_gateway, ovh_cloud_project_ssh_key.key]
@@ -181,43 +181,46 @@ resource "ovh_cloud_project_instance" "instance_c" {
 ##############################################################################
 #                        MANAGED MYSQL DATABASE                              #
 ##############################################################################
-# resource "ovh_cloud_project_database" "mysqldb" {
-#   service_name = "569db610a93e443091a06c6d8827906b"
-#   description  = "my-first-mysql"
-#   engine       = "mysql"
-#   version      = "8"
-#   plan         = "production"
-#   nodes {
-#     region     = "EU-WEST-PAR"
-#     subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
-#     network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
-#   }
-#   nodes {
-#     region     = "EU-WEST-PAR"
-#     subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
-#     network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
-#   }
-#   nodes {
-#     region     = "EU-WEST-PAR"
-#     subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
-#     network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
-#   }
-#   flavor = "b3-8"
-#   advanced_configuration = {
-#     "mysql.sql_mode" : "ANSI,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_ALL_TABLES",
-#     "mysql.sql_require_primary_key" : "true"
-#   }
-#   ip_restrictions {
-#     description = "private network ip"
-#     ip          = "10.1.0.0/27"
-#   }
-#   depends_on = [ovh_cloud_project_network_private_subnet.subnet]
-# }
+resource "ovh_cloud_project_database" "mysqldb" {
+  service_name = "569db610a93e443091a06c6d8827906b"
+  description  = "my-first-mysql"
+  engine       = "mysql"
+  version      = "8"
+  plan         = "production"
+  nodes {
+    region     = "EU-WEST-PAR"
+    subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
+    network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
+  }
+  nodes {
+    region     = "EU-WEST-PAR"
+    subnet_id  = ovh_cloud_project_network_private_subnet.subnet.id
+    network_id = tolist(ovh_cloud_project_network_private.network.regions_attributes[*].openstackid)[0]
+  }
+  flavor = "b3-8"
+  advanced_configuration = {
+    "mysql.sql_mode" : "ANSI,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_ALL_TABLES",
+    "mysql.sql_require_primary_key" : "true"
+  }
+  ip_restrictions {
+    description = "private network ip"
+    ip          = "10.1.0.0/27"
+  }
 
-# resource "ovh_cloud_project_database_user" "user" {
-#   service_name = "569db610a93e443091a06c6d8827906b"
-#   engine       = "mysql"
-#   cluster_id   = ovh_cloud_project_database.mysqldb.id
-#   name         = "lucas"
-#   depends_on   = [ovh_cloud_project_database.mysqldb]
-# }
+  lifecycle {
+    ignore_changes = [
+      advanced_configuration["mysql.log_output"],
+      advanced_configuration["mysql.long_query_time"],
+      advanced_configuration["mysql.slow_query_log"],
+    ]
+  }
+  depends_on = [ovh_cloud_project_network_private_subnet.subnet]
+}
+
+resource "ovh_cloud_project_database_user" "user" {
+  service_name = "569db610a93e443091a06c6d8827906b"
+  engine       = "mysql"
+  cluster_id   = ovh_cloud_project_database.mysqldb.id
+  name         = "lucas"
+  depends_on   = [ovh_cloud_project_database.mysqldb]
+}
