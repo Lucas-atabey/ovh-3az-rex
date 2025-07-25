@@ -35,23 +35,30 @@ output "user_password" {
   sensitive = true
 }
 
-output "instance_a_floating_ip" {
+output "baction_public_ip" {
   value = [
     for addr in ovh_cloud_project_instance.instance_a.addresses :
     addr.ip if !(startswith(addr.ip, "10.") || startswith(addr.ip, "192.168.") || startswith(addr.ip, "172.16."))
   ][0]
 }
 
-output "instance_b_floating_ip" {
+output "instance_a_private_ip" {
   value = [
-    for addr in ovh_cloud_project_instance.instance_b.addresses :
-    addr.ip if !(startswith(addr.ip, "10.") || startswith(addr.ip, "192.168.") || startswith(addr.ip, "172.16."))
+    for addr in ovh_cloud_project_instance.instance_a.addresses :
+    addr.ip if(startswith(addr.ip, "10."))
   ][0]
 }
 
-output "instance_c_floating_ip" {
+output "instance_b_private_ip" {
+  value = [
+    for addr in ovh_cloud_project_instance.instance_b.addresses :
+    addr.ip if(startswith(addr.ip, "10."))
+  ][0]
+}
+
+output "instance_c_private_ip" {
   value = [
     for addr in ovh_cloud_project_instance.instance_c.addresses :
-    addr.ip if !(startswith(addr.ip, "10.") || startswith(addr.ip, "192.168.") || startswith(addr.ip, "172.16."))
+    addr.ip if(startswith(addr.ip, "10."))
   ][0]
 }

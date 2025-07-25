@@ -37,8 +37,8 @@ resource "ovh_cloud_project_network_private_subnet" "subnet" {
   # whatever region, for test purpose
   region     = "EU-WEST-PAR"
   start      = "10.1.0.2"
-  end        = "10.1.0.30"
-  network    = "10.1.0.0/27"
+  end        = "10.1.0.62"
+  network    = "10.1.0.0/26"
   dhcp       = true
   no_gateway = false
   depends_on = [ovh_cloud_project_network_private.network]
@@ -95,15 +95,16 @@ resource "ovh_cloud_project_instance" "instance_a" {
         id = ovh_cloud_project_gateway.gateway.id
       }
       floating_ip {
-        id = tolist(data.ovh_cloud_project_floatingips.ips.cloud_project_floatingips)[0].id
+        id = tolist(data.ovh_cloud_project_floatingips.ips.cloud_project_floatingips)[1].id
       }
     }
   }
   ssh_key {
     name = "lucas"
   }
-  user_data = templatefile("${path.module}/scripts/cloud-init.yaml", {
-    ssh_public_key = var.ssh_public_key
+  user_data = templatefile("${path.module}/scripts/cloud-init-bastion.yaml", {
+    ssh_public_key  = var.ssh_public_key,
+    ssh_private_key = var.ssh_private_key
   })
   depends_on = [time_sleep.wait_for_gateway, ovh_cloud_project_ssh_key.key]
 }
@@ -128,9 +129,6 @@ resource "ovh_cloud_project_instance" "instance_b" {
       }
       gateway {
         id = ovh_cloud_project_gateway.gateway.id
-      }
-      floating_ip {
-        id = tolist(data.ovh_cloud_project_floatingips.ips.cloud_project_floatingips)[1].id
       }
     }
   }
@@ -163,9 +161,6 @@ resource "ovh_cloud_project_instance" "instance_c" {
       }
       gateway {
         id = ovh_cloud_project_gateway.gateway.id
-      }
-      floating_ip {
-        id = tolist(data.ovh_cloud_project_floatingips.ips.cloud_project_floatingips)[2].id
       }
     }
   }
@@ -204,7 +199,7 @@ resource "ovh_cloud_project_database" "mysqldb" {
   }
   ip_restrictions {
     description = "private network ip"
-    ip          = "10.1.0.0/27"
+    ip          = "10.1.0.0/26"
   }
 
   lifecycle {

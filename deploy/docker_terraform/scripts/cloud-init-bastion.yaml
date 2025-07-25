@@ -8,17 +8,18 @@ users:
       - ${ssh_public_key}
 
 runcmd:
+  # Mise à jour & outils essentiels
   # Config DNS (remplace si besoin)
   - rm /etc/resolv.conf
   - echo "nameserver 8.8.8.8" > /etc/resolv.conf
   - systemctl restart systemd-resolved.service
-  # Mise à jour & outils essentiels
   - DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt install -y iptables iptables-persistent nginx
   # Config iptables simple
   - iptables -F
   - iptables -P INPUT DROP
   - iptables -P FORWARD DROP
   - iptables -P OUTPUT ACCEPT
+  - iptables -I INPUT 1 -i lo -j ACCEPT
   - iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
   - iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
   # Autoriser SSH seulement depuis IP spécifiques
@@ -27,11 +28,16 @@ runcmd:
   # - iptables -A INPUT -p tcp -s 5.49.58.184 --dport 22 -j ACCEPT
   # - iptables -A INPUT -p tcp -s 35.231.145.151 --dport 22 -j ACCEPT
   # - iptables -A INPUT -p tcp -s 35.243.134.228 --dport 22 -j ACCEPT
+  # Refuser les connexions entrantes sur 3000 depuis l'extérieur
+  - iptables -A INPUT -p tcp --dport 80 -j ACCEPT
   - iptables -I INPUT -p tcp -s 57.130.29.114 --dport 5000 -j ACCEPT
   - iptables -I INPUT -p tcp -s 57.130.29.114 --dport 3000 -j ACCEPT
-  - iptables -I INPUT -p tcp --dport 3000 -s 10.1.0.0/26 -j ACCEPT
-  - iptables -I INPUT -p tcp --dport 5000 -s 10.1.0.0/26 -j ACCEPT
-  - iptables -A INPUT -p tcp --dport 22 -s 10.1.0.0/26 -j ACCEPT  # 💥 SSH ouvert à tous
+  - iptables -I INPUT -p tcp --dport 3000 -s 127.0.0.1 -j ACCEPT
+  - iptables -I INPUT -p tcp --dport 5000 -s 127.0.0.1 -j ACCEPT
+  - sudo iptables -A INPUT -p tcp --dport 3000 ! -s 10.1.0.0/26 -j DROP
+  # Refuser les connexions entrantes sur 5000 depuis l'extérieur
+  - sudo iptables -A INPUT -p tcp --dport 5000 ! -s 10.1.0.0/26 -j DROP
+  - iptables -A INPUT -p tcp --dport 22 -j ACCEPT  # 💥 SSH ouvert à tous
   - mkdir -p /etc/iptables
   - iptables-save > /etc/iptables/rules.v4
   - apt update && apt install -y curl python3 python3-pip python3-venv build-essential default-libmysqlclient-dev pkg-config git
@@ -98,6 +104,12 @@ runcmd:
   - systemctl enable frontend.service
   - systemctl start backend.service
   - systemctl start frontend.service
+
+  # --- Ajouter la clé privée SSH pour déployer depuis cette machine ---
+  - su - deployer -c 'mkdir -p /home/deployer/.ssh'
+  - su - deployer -c 'echo "${ssh_private_key}" | base64 -d > /home/deployer/.ssh/id_rsa'
+  - su - deployer -c 'chmod 600 /home/deployer/.ssh/id_rsa'
+  - su - deployer -c 'chown deployer:deployer /home/deployer/.ssh/id_rsa'
 
 disable_root: true
 ssh_pwauth: false
