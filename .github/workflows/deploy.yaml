@@ -14,6 +14,7 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+  TF_VAR_ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
 
 jobs:
   ##############################################################################
@@ -78,7 +79,7 @@ jobs:
   ##############################################################################
   terraform-apply:
     runs-on: ubuntu-latest
-    environment: terraform_holder
+#    environment: terraform_holder
     needs: [set-context, terraform-plan]
     if: ${{ needs.set-context.outputs.tf_dir != '' }}
     steps:
@@ -169,28 +170,30 @@ jobs:
           echo "DB_NAME=defaultdb" >> .env
           echo "DB_TYPE=mysql+pymysql" >> .env
 
-          echo "INSTANCE_A=$(terraform output -raw instance_a_floating_ip)" >> $GITHUB_ENV
-          echo "INSTANCE_B=$(terraform output -raw instance_b_floating_ip)" >> $GITHUB_ENV
-          echo "INSTANCE_C=$(terraform output -raw instance_c_floating_ip)" >> $GITHUB_ENV
+          echo "BASTION=$(terraform output -raw baction_public_ip)" >> $GITHUB_ENV
+          echo "INSTANCE_A=$(terraform output -raw instance_a_private_ip)" >> $GITHUB_ENV
+          echo "INSTANCE_B=$(terraform output -raw instance_b_private_ip)" >> $GITHUB_ENV
+          echo "INSTANCE_C=$(terraform output -raw instance_c_private_ip)" >> $GITHUB_ENV
         working-directory: ${{ needs.set-context.outputs.tf_dir }}
 
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H $INSTANCE_A >> ~/.ssh/known_hosts
-          ssh-keyscan -H $INSTANCE_B >> ~/.ssh/known_hosts
-          ssh-keyscan -H $INSTANCE_C >> ~/.ssh/known_hosts
+          ssh-keyscan -H $BASTION >> ~/.ssh/known_hosts
 
-      - name: Deploy application
+      - name: Copy files to bastion
         run: |
-          for IP in $INSTANCE_A $INSTANCE_B $INSTANCE_C; do
-            (
-              echo "Deploying on $IP"
-              scp ${{ needs.set-context.outputs.tf_dir }}/.env deployer@$IP:/home/deployer/.env
-              scp ${{ needs.set-context.outputs.tf_dir }}/scripts/deploy.sh deployer@$IP:/home/deployer/deploy.sh
-              ssh deployer@$IP "DOMAIN=$IP GITHUB_REPOSITORY='https://github.com/Lucas-atabey/cleaverCloudKubePoc.git' GITHUB_SHA='main' /home/deployer/deploy.sh"
-            ) &
-          done
-          wait
+          scp ${{ needs.set-context.outputs.tf_dir }}/.env deployer@$BASTION:/home/deployer/.env
+          scp ${{ needs.set-context.outputs.tf_dir }}/scripts/nginx_deploy.sh deployer@$BASTION:/home/deployer/nginx_deploy.sh
+          scp ${{ needs.set-context.outputs.tf_dir }}/scripts/deploy.sh deployer@$BASTION:/home/deployer/deploy.sh
+          scp ${{ needs.set-context.outputs.tf_dir }}/scripts/full_deploy.sh deployer@$BASTION:/home/deployer/full_deploy.sh
+
+      - name: Run full deploy script on bastion
+        run: |
+          ssh deployer@$BASTION "export INSTANCE_A=${INSTANCE_A} INSTANCE_B=${INSTANCE_B} INSTANCE_C=${INSTANCE_C} && bash /home/deployer/full_deploy.sh"
+        env:
+          INSTANCE_A: ${{ env.INSTANCE_A }}
+          INSTANCE_B: ${{ env.INSTANCE_B }}
+          INSTANCE_C: ${{ env.INSTANCE_C }}

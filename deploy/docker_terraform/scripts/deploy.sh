@@ -30,7 +30,8 @@ echo "📂 Copy config.json"
 mkdir -p ~/myApp/frontend/server/public/config
 cat > ~/myApp/frontend/server/public/config/config.json <<EOF
 {
-  "BACKEND_URL": "http://${DOMAIN}:5000"
+  "BACKEND_URL": "/api",
+  "FRONT_IP": "${FRONT_IP}"
 }
 EOF
 

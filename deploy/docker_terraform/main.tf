@@ -102,8 +102,9 @@ resource "ovh_cloud_project_instance" "instance_a" {
   ssh_key {
     name = "lucas"
   }
-  user_data = templatefile("${path.module}/scripts/cloud-init.yaml", {
-    ssh_public_key = var.ssh_public_key
+  user_data = templatefile("${path.module}/scripts/cloud-init-bastion.yaml", {
+    ssh_public_key  = var.ssh_public_key,
+    ssh_private_key = var.ssh_private_key
   })
   depends_on = [time_sleep.wait_for_gateway, ovh_cloud_project_ssh_key.key]
 }
@@ -128,9 +129,6 @@ resource "ovh_cloud_project_instance" "instance_b" {
       }
       gateway {
         id = ovh_cloud_project_gateway.gateway.id
-      }
-      floating_ip {
-        id = tolist(data.ovh_cloud_project_floatingips.ips.cloud_project_floatingips)[1].id
       }
     }
   }
@@ -163,9 +161,6 @@ resource "ovh_cloud_project_instance" "instance_c" {
       }
       gateway {
         id = ovh_cloud_project_gateway.gateway.id
-      }
-      floating_ip {
-        id = tolist(data.ovh_cloud_project_floatingips.ips.cloud_project_floatingips)[2].id
       }
     }
   }
