@@ -79,7 +79,7 @@ jobs:
   ##############################################################################
   terraform-apply:
     runs-on: ubuntu-latest
-#    environment: terraform_holder
+    # environment: terraform_holder
     needs: [set-context, terraform-plan]
     if: ${{ needs.set-context.outputs.tf_dir != '' }}
     steps:

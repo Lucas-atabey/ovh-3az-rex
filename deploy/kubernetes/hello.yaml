@@ -52,6 +52,10 @@ spec:
               value: "${DB_NAME}"
             - name: DB_TYPE
               value: "${DB_TYPE}"
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
 ---
 apiVersion: v1
 kind: Service
@@ -87,33 +91,19 @@ spec:
       volumes:
         - name: config-volume
           emptyDir: {}
-      initContainers:
-        - name: init-config
-          image: busybox
-          command:
-            - sh
-            - -c
-            - |
-              echo '[initContainer] Generating config.json'
-              echo '{' > /config/config.json
-              echo '  "BACKEND_URL": "http://backend.hello-app.svc.cluster.local:5000",' >> /config/config.json
-              echo "  \"FRONT_IP\": \"${FRONT_IP}\"" >> /config/config.json
-              echo '}' >> /config/config.json
-          env:
-            - name: FRONT_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
-          volumeMounts:
-            - name: config-volume
-              mountPath: /config
       containers:
         - name: frontend
           image: lucas1712/cloudclever-kube-rex-frontend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
+          env:
+            - name: FRONT_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: BACKEND_URL
+              value: "http://backend.hello-app.svc.cluster.local:5000"
           volumeMounts:
             - name: config-volume
-              mountPath: /tmp/config/config.json
-              subPath: config.json
+              mountPath: /tmp/config
