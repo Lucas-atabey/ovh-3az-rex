@@ -73,6 +73,13 @@ data "ovh_cloud_project_floatingips" "ips" {
   region_name  = "EU-WEST-PAR"
 }
 
+locals {
+  floating_ip_id = one([
+    for ip in data.ovh_cloud_project_floatingips.ips.cloud_project_floatingips :
+    ip.id if ip.ip == "57.130.30.90"
+  ])
+}
+
 resource "ovh_cloud_project_instance" "instance_a" {
   service_name   = "569db610a93e443091a06c6d8827906b"
   region         = "EU-WEST-PAR"
@@ -95,7 +102,7 @@ resource "ovh_cloud_project_instance" "instance_a" {
         id = ovh_cloud_project_gateway.gateway.id
       }
       floating_ip {
-        id = tolist(data.ovh_cloud_project_floatingips.ips.cloud_project_floatingips)[1].id
+        id = local.floating_ip_id
       }
     }
   }

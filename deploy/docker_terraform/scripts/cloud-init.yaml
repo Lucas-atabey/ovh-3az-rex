@@ -27,8 +27,9 @@ runcmd:
   # - iptables -A INPUT -p tcp -s 5.49.58.184 --dport 22 -j ACCEPT
   # - iptables -A INPUT -p tcp -s 35.231.145.151 --dport 22 -j ACCEPT
   # - iptables -A INPUT -p tcp -s 35.243.134.228 --dport 22 -j ACCEPT
-  - iptables -I INPUT -p tcp -s 57.130.29.114 --dport 5000 -j ACCEPT
-  - iptables -I INPUT -p tcp -s 57.130.29.114 --dport 3000 -j ACCEPT
+  # IP des LB à autoriser
+  - iptables -I INPUT -p tcp -s 57.130.28.79 --dport 5000 -j ACCEPT
+  - iptables -I INPUT -p tcp -s 57.130.28.79--dport 3000 -j ACCEPT
   - iptables -I INPUT -p tcp --dport 3000 -s 10.1.0.0/26 -j ACCEPT
   - iptables -I INPUT -p tcp --dport 5000 -s 10.1.0.0/26 -j ACCEPT
   - iptables -A INPUT -p tcp --dport 22 -s 10.1.0.0/26 -j ACCEPT  # 💥 SSH ouvert à tous

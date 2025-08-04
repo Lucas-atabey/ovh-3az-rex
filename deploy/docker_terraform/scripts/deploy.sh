@@ -30,12 +30,13 @@ echo "📂 Copy config.json"
 mkdir -p ~/myApp/frontend/server/public/config
 cat > ~/myApp/frontend/server/public/config/config.json <<EOF
 {
-  "BACKEND_URL": "http://57.130.29.114:5000",
+  "BACKEND_URL": "http://57.130.28.79:5000",
   "FRONT_IP": "${FRONT_IP}"
 }
 EOF
 
-# "BACKEND_URL": "/api",
+  # "BACKEND_URL": "/api",
+
 
 echo "🚀 Restart frontend.service"
 sudo systemctl restart frontend.service

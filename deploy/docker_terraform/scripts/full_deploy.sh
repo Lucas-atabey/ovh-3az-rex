@@ -33,5 +33,5 @@ for NODE in $INSTANCE_B $INSTANCE_C; do
   ssh deployer@$NODE "FRONT_IP=$NODE GITHUB_REPOSITORY=$REPO_URL GITHUB_SHA=$BRANCH bash /home/deployer/deploy.sh"
 done
 
-echo "🔁 Configuration nginx"
-sudo /home/deployer/nginx_deploy.sh $INSTANCE_A $INSTANCE_B $INSTANCE_C
+# echo "🔁 Configuration nginx"
+# sudo /home/deployer/nginx_deploy.sh $INSTANCE_A $INSTANCE_B $INSTANCE_C
