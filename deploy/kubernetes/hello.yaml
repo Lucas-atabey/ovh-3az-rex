@@ -63,7 +63,6 @@ metadata:
   name: frontend
   namespace: hello-app
 spec:
-  type: LoadBalancer
   selector:
     app: frontend
   ports:
@@ -107,3 +106,41 @@ spec:
           volumeMounts:
             - name: config-volume
               mountPath: /tmp/config
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-app-backend
+  namespace: hello-app
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /api(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: backend
+            port:
+              number: 5000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-app-frontend
+  namespace: hello-app
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
