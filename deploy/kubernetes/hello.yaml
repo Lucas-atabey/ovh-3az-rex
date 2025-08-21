@@ -35,23 +35,48 @@ spec:
     spec:
       containers:
         - name: backend
-          image: lucas1712/cloudclever-kube-rex-backend:latest
-          imagePullPolicy: Always
+          image: lucas1712/cloudclever-kube-rex-backend:latest # It is recommended to use a specific image tag instead of 'latest'
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "1024Mi"
           env:
             - name: DB_USERNAME
-              value: "${DB_USERNAME}"
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_USERNAME
             - name: DB_PASSWORD
-              value: "${DB_PASSWORD}"
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_PASSWORD
             - name: DB_HOST
-              value: "${DB_HOST}"
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_HOST
             - name: DB_PORT
-              value: "${DB_PORT}"
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_PORT
             - name: DB_NAME
-              value: "${DB_NAME}"
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_NAME
             - name: DB_TYPE
-              value: "${DB_TYPE}"
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_TYPE
             - name: NODE_IP
               valueFrom:
                 fieldRef:
@@ -92,10 +117,17 @@ spec:
           emptyDir: {}
       containers:
         - name: frontend
-          image: lucas1712/cloudclever-kube-rex-frontend:latest
-          imagePullPolicy: Always
+          image: lucas1712/cloudclever-kube-rex-frontend:latest # It is recommended to use a specific image tag instead of 'latest'
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
           env:
             - name: FRONT_IP
               valueFrom:

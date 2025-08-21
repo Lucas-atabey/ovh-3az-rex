@@ -136,10 +136,32 @@ jobs:
           echo "DB_TYPE=mysql+pymysql" >> $GITHUB_ENV
         working-directory: ${{ needs.set-context.outputs.tf_dir }}
 
+      - name: Create or update Kubernetes Secret
+        env:
+          DB_USERNAME: ${{ env.DB_USERNAME }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+          DB_HOST: ${{ env.DB_HOST }}
+          DB_PORT: ${{ env.DB_PORT }}
+          DB_NAME: ${{ env.DB_NAME }}
+          DB_TYPE: ${{ env.DB_TYPE }}
+        run: |
+          kubectl create namespace hello-app --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic db-credentials \
+            --namespace hello-app \
+            --from-literal=DB_USERNAME=${DB_USERNAME} \
+            --from-literal=DB_PASSWORD=${DB_PASSWORD} \
+            --from-literal=DB_HOST=${DB_HOST} \
+            --from-literal=DB_PORT=${DB_PORT} \
+            --from-literal=DB_NAME=${DB_NAME} \
+            --from-literal=DB_TYPE=${DB_TYPE} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Deploy to Kubernetes
         shell: bash
         run: |
-          envsubst < hello.yaml | kubectl apply -f -
+          kubectl apply -f "https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.1/deploy/static/provider/cloud/deploy.yaml"
+          kubectl apply -f hello.yaml
+          kubectl apply -f nginx-config.yaml
           kubectl rollout restart -n hello-app deployment backend-deployment frontend-deployment
         working-directory: deploy/kubernetes
 

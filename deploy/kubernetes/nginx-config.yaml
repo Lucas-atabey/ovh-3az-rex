@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configuration
+  namespace: ingress-nginx
+data:
+  # Sets the number of NGINX worker processes. 'auto' is a good default,
+  # which sets it to the number of available CPU cores.
+  worker-processes: "auto"
+
+  # The maximum number of simultaneous connections for each worker.
+  worker-connections: "16384"
+
+  # Enables keep-alive connections between NGINX and the backend pods.
+  # This reduces latency by reusing connections.
+  upstream-keepalive-connections: "320"
